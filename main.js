@@ -1,3 +1,7 @@
+// Textures from Solar System Scope (https://www.solarsystemscope.com/textures/)
+// Distributed under Attribution 4.0 International license
+// Please include attribution if you use these textures in your project.
+
 // Define shaders for Earth with day/night blending and specular highlights
 const vertexShader = `
     varying vec3 vNormal;
@@ -25,11 +29,9 @@ const fragmentShader = `
         vec3 lightDir = normalize(lightDirection);
         float NdotL = dot(normal, lightDir);
         float lighting = max(NdotL, 0.0);
-        // Mix day and night textures based on lighting
         vec4 dayColor = texture2D(dayTexture, vUv);
         vec4 nightColor = texture2D(nightTexture, vUv);
         vec4 diffuseColor = mix(nightColor, dayColor, lighting);
-        // Add specular highlights for oceans
         vec3 viewDir = normalize(-vViewPosition);
         vec3 reflectDir = reflect(-lightDir, normal);
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
@@ -45,13 +47,13 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('container').appendChild(renderer.domElement);
 
-// Set up OrbitControls for interactivity
+// Set up OrbitControls
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.minDistance = 1.5;
 controls.maxDistance = 50;
-camera.position.set(0, 0, 5); // Default cinematic orbital view
+camera.position.set(0, 0, 5);
 controls.update();
 
 // Animation parameters
@@ -70,10 +72,19 @@ const satOrbitSpeed1 = 0.01;
 const satOrbitSpeed2 = 0.015;
 const satOrbitSpeed3 = 0.02;
 
-// Set up loading manager to handle texture loading
+// Load textures using URLs from textures.js
 const loadingManager = new THREE.LoadingManager();
+const textureLoader = new THREE.TextureLoader(loadingManager);
+const earthDayTexture = textureLoader.load(textureURLs.earthDay);
+const earthNightTexture = textureLoader.load(textureURLs.earthNight);
+const earthSpecularTexture = textureLoader.load(textureURLs.earthSpecular);
+const cloudsTexture = textureLoader.load(textureURLs.clouds);
+const moonTexture = textureLoader.load(textureURLs.moon);
+const starsTexture = textureLoader.load(textureURLs.stars);
+
+// Define objects once textures are loaded
 loadingManager.onLoad = function() {
-    // Starfield sphere
+    // Starfield
     const starGeometry = new THREE.SphereGeometry(100, 32, 32);
     const starMaterial = new THREE.MeshBasicMaterial({ map: starsTexture, side: THREE.BackSide });
     const stars = new THREE.Mesh(starGeometry, starMaterial);
@@ -94,24 +105,24 @@ loadingManager.onLoad = function() {
     const earth = new THREE.Mesh(earthGeometry, earthMaterial);
     scene.add(earth);
 
-    // Dynamic cloud layer
+    // Clouds layer
     const cloudsGeometry = new THREE.SphereGeometry(1.01, 64, 64);
     const cloudsMaterial = new THREE.MeshPhongMaterial({
         map: cloudsTexture,
-        transparent: true,
-        opacity: 0.8
+        alphaMap: cloudsTexture,
+        transparent: true
     });
     const clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
     scene.add(clouds);
 
     // Moon
-    const moonGeometry = new THREE.SphereGeometry(0.27, 32, 32); // Approx. Moon-to-Earth radius ratio
+    const moonGeometry = new THREE.SphereGeometry(0.27, 32, 32);
     const moonMaterial = new THREE.MeshPhongMaterial({ map: moonTexture });
     const moon = new THREE.Mesh(moonGeometry, moonMaterial);
     scene.add(moon);
     moon.position.set(moonOrbitRadius, 0, 0);
 
-    // Satellites (e.g., generic models representing ISS or others)
+    // Satellites
     const satelliteGeometry = new THREE.SphereGeometry(0.05, 16, 16);
     const satelliteMaterial = new THREE.MeshPhongMaterial({ color: 0xaaaaaa });
     const satellite1 = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
@@ -122,7 +133,7 @@ loadingManager.onLoad = function() {
     satellite2.position.set(0, 0, satOrbitRadius2);
     satellite3.position.set(-satOrbitRadius3, 0, 0);
 
-    // Directional light (Sun)
+    // Sun light
     const sunLight = new THREE.DirectionalLight(0xffffff, 1);
     sunLight.position.set(5, 0, 0);
     scene.add(sunLight);
@@ -130,15 +141,6 @@ loadingManager.onLoad = function() {
     // Start animation
     animate();
 };
-
-// Load textures (to be placed in a 'textures' folder)
-const textureLoader = new THREE.TextureLoader(loadingManager);
-const earthDayTexture = textureLoader.load('textures/earth_day.jpg');
-const earthNightTexture = textureLoader.load('textures/earth_night.jpg');
-const earthSpecularTexture = textureLoader.load('textures/earth_specular.jpg');
-const cloudsTexture = textureLoader.load('textures/clouds.png');
-const moonTexture = textureLoader.load('textures/moon.jpg');
-const starsTexture = textureLoader.load('textures/stars.jpg');
 
 // Animation loop
 function animate() {
@@ -176,16 +178,14 @@ function animate() {
         satOrbitRadius3 * Math.sin(satAngle3)
     );
 
-    // Update light direction in view space for Earth shader
-    const lightDirWorld = new THREE.Vector3(-1, 0, 0); // Direction towards origin from (5,0,0)
+    // Update light direction for Earth shader
+    const lightDirWorld = new THREE.Vector3(-1, 0, 0);
     const viewMatrix = camera.matrixWorldInverse;
     const rotationMatrix = new THREE.Matrix3().setFromMatrix4(viewMatrix);
     const lightDirView = lightDirWorld.clone().applyMatrix3(rotationMatrix);
     earthMaterial.uniforms.lightDirection.value = lightDirView;
 
-    // Update controls
+    // Update controls and render
     controls.update();
-
-    // Render scene
     renderer.render(scene, camera);
 }
