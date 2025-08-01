@@ -19,6 +19,7 @@ body {
 }
 
 #ui-container > * {
+    position: absolute;
     pointer-events: auto;
     background: rgba(255, 255, 255, 0.9);
     padding: 10px;

@@ -140,7 +140,7 @@ scene.add(gridHelper);
 gridHelper.visible = false;
 
 // Datetime picker
-flatpickr('#datetime-picker', {
+const flatpickrInstance = flatpickr('#datetime-picker', {
     enableTime: true,
     dateFormat: "Y-m-d H:i",
     time_24hr: true,
@@ -150,14 +150,46 @@ flatpickr('#datetime-picker', {
     }
 });
 
-// UI event listeners
-document.getElementById('now-button').addEventListener('click', () => {
-    simulationTime = Date.now();
+// Time speed slider
+const timeSpeedSlider = document.getElementById('time-speed-slider');
+noUiSlider.create(timeSpeedSlider, {
+    start: [1],
+    connect: [true, false],
+    range: {
+        'min': 0,
+        '25%': 1,
+        '50%': 10,
+        '75%': 100,
+        'max': 1000
+    },
+    pips: {
+        mode: 'values',
+        values: [0, 1, 10, 100, 1000],
+        density: 4
+    }
 });
-document.getElementById('pause').addEventListener('click', () => timeMultiplier = 0);
-document.getElementById('1x').addEventListener('click', () => timeMultiplier = 1);
-document.getElementById('10x').addEventListener('click', () => timeMultiplier = 10);
-document.getElementById('100x').addEventListener('click', () => timeMultiplier = 100);
+
+timeSpeedSlider.noUiSlider.on('update', function (values, handle) {
+    timeMultiplier = parseFloat(values[handle]);
+});
+
+
+// UI event listeners
+document.getElementById('real-time-toggle').addEventListener('click', () => {
+    simulationTime = Date.now();
+    flatpickrInstance.setDate(simulationTime);
+});
+
+document.getElementById('step-backward').addEventListener('click', () => {
+    simulationTime -= 3600 * 1000; // Step back 1 hour
+    flatpickrInstance.setDate(simulationTime);
+});
+
+document.getElementById('step-forward').addEventListener('click', () => {
+    simulationTime += 3600 * 1000; // Step forward 1 hour
+    flatpickrInstance.setDate(simulationTime);
+});
+
 
 document.getElementById('reset-view').addEventListener('click', () => {
     camera.position.set(0, 0, 5);
@@ -174,30 +206,42 @@ cameraTargetSelect.addEventListener('change', () => {
     controls.update();
 });
 
-document.getElementById('cinematic-mode').addEventListener('change', (e) => {
-    cinematicMode = e.target.checked;
+document.getElementById('tour-mode').addEventListener('click', () => {
+    cinematicMode = !cinematicMode;
 });
 
-// Customization panel with dat.GUI
-const gui = new dat.GUI({ autoPlace: false });
-document.body.appendChild(gui.domElement);
-gui.domElement.style.position = 'absolute';
-gui.domElement.style.top = '150px';
-gui.domElement.style.right = '10px';
-
-const layersFolder = gui.addFolder('Layers');
-layersFolder.add(clouds, 'visible').name('Clouds');
-layersFolder.add(satellite1, 'visible').name('Satellites');
-
-const timeFolder = gui.addFolder('Time Control');
-timeFolder.add({ timeSpeed: timeMultiplier }, 'timeSpeed', [0, 1, 10, 100]).name('Time Speed').onChange((value) => {
-    timeMultiplier = value;
+document.getElementById('clouds-toggle').addEventListener('change', (e) => {
+    clouds.visible = e.target.checked;
 });
 
-const visualsFolder = gui.addFolder('Visuals');
-visualsFolder.add(moonOrbit, 'visible').name('Moon Orbit Trail');
-visualsFolder.add(satOrbit, 'visible').name('Satellite Orbit Trail');
-visualsFolder.add(gridHelper, 'visible').name('Coordinate Grid');
+document.getElementById('satellites-toggle').addEventListener('change', (e) => {
+    const isVisible = e.target.checked;
+    satellite1.visible = isVisible;
+    satOrbit.visible = isVisible;
+});
+
+document.getElementById('fly-to').addEventListener('click', () => {
+    const targetName = cameraTargetSelect.value;
+    let targetObject;
+    if (targetName === 'earth') targetObject = earth;
+    else if (targetName === 'moon') targetObject = moon;
+    else if (targetName === 'satellite1') targetObject = satellite1;
+
+    if (targetObject) {
+        const start = { x: camera.position.x, y: camera.position.y, z: camera.position.z };
+        // Target a position slightly offset from the object
+        const endPos = targetObject.position.clone().add(new THREE.Vector3(2, 2, 2));
+
+        new TWEEN.Tween(start)
+            .to({ x: endPos.x, y: endPos.y, z: endPos.z }, 2000) // 2 seconds
+            .easing(TWEEN.Easing.Cubic.InOut)
+            .onUpdate(() => {
+                camera.position.set(start.x, start.y, start.z);
+                controls.target.copy(targetObject.position);
+            })
+            .start();
+    }
+});
 
 // Animation loop
 function animate() {
@@ -254,6 +298,8 @@ function animate() {
     } else {
         controls.update();
     }
+
+    TWEEN.update();
 
     // Update current time display
     document.getElementById('current-time').innerText = moment(simulationTime).utc().format('YYYY-MM-DD HH:mm:ss');
