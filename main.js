@@ -2,7 +2,10 @@
 // Distributed under Attribution 4.0 International license
 // Please include attribution if you use these textures in your project.
 
-// Define shaders for Earth with day/night blending and specular highlights
+// Debug: Log to confirm scripts are loaded
+console.log('main.js loaded. textureURLs:', typeof textureURLs !== 'undefined' ? textureURLs : 'undefined');
+
+// Define shaders for Earth
 const vertexShader = `
     varying vec3 vNormal;
     varying vec2 vUv;
@@ -27,15 +30,14 @@ const fragmentShader = `
     void main() {
         vec3 normal = normalize(vNormal);
         vec3 lightDir = normalize(lightDirection);
-        float NdotL = dot(normal, lightDir);
-        float lighting = max(NdotL, 0.0);
+        float NdotL = max(dot(normal, lightDir), 0.0);
         vec4 dayColor = texture2D(dayTexture, vUv);
         vec4 nightColor = texture2D(nightTexture, vUv);
-        vec4 diffuseColor = mix(nightColor, dayColor, lighting);
-        vec3 viewDir = normalize(-vViewPosition);
+        vec4 diffuseColor = mix(nightColor, dayColor, NdotL);
+        vec3 viewDir = normalize(vViewPosition);
         vec3 reflectDir = reflect(-lightDir, normal);
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-        vec4 specularColor = texture2D(specularMap, vUv) * spec * lighting;
+        vec4 specularColor = texture2D(specularMap, vUv) * spec * NdotL;
         gl_FragColor = diffuseColor + specularColor;
     }
 `;
@@ -43,9 +45,15 @@ const fragmentShader = `
 // Set up scene, camera, and renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.getElementById('container').appendChild(renderer.domElement);
+const container = document.getElementById('container');
+if (container) {
+    container.appendChild(renderer.domElement);
+    console.log('Renderer appended to container');
+} else {
+    console.error('Container div not found');
+}
 
 // Set up OrbitControls
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -72,27 +80,57 @@ const satOrbitSpeed1 = 0.01;
 const satOrbitSpeed2 = 0.015;
 const satOrbitSpeed3 = 0.02;
 
-// Load textures using URLs from textures.js
+// Load textures with error handling
+let earth, earthMaterial, clouds; // Declare globally for animation
 const loadingManager = new THREE.LoadingManager();
-const textureLoader = new THREE.TextureLoader(loadingManager);
-const earthDayTexture = textureLoader.load(textureURLs.earthDay);
-const earthNightTexture = textureLoader.load(textureURLs.earthNight);
-const earthSpecularTexture = textureLoader.load(textureURLs.earthSpecular);
-const cloudsTexture = textureLoader.load(textureURLs.clouds);
-const moonTexture = textureLoader.load(textureURLs.moon);
-const starsTexture = textureLoader.load(textureURLs.stars);
-
-// Define objects once textures are loaded
 loadingManager.onLoad = function() {
+    console.log('All textures loaded successfully');
+    initializeScene();
+};
+loadingManager.onError = function(url) {
+    console.error('Error loading texture:', url);
+};
+const textureLoader = new THREE.TextureLoader(loadingManager);
+
+// Load textures with fallbacks
+function loadTexture(key) {
+    return new Promise((resolve) => {
+        textureLoader.load(
+            textureURLs[key],
+            (texture) => {
+                console.log(`Texture ${key} loaded:`, textureURLs[key]);
+                resolve(texture);
+            },
+            undefined,
+            () => {
+                console.warn(`Failed to load ${key}, using fallback`);
+                const fallbackTexture = new THREE.TextureLoader().load(fallbackTextures[key]);
+                resolve(fallbackTexture);
+            }
+        );
+    });
+}
+
+Promise.all([
+    loadTexture('earthDay'),
+    loadTexture('earthNight'),
+    loadTexture('earthSpecular'),
+    loadTexture('clouds'),
+    loadTexture('moon'),
+    loadTexture('stars')
+]).then(([earthDayTexture, earthNightTexture, earthSpecularTexture, cloudsTexture, moonTexture, starsTexture]) => {
+    // Initialize scene even if some textures used fallbacks
+    console.log('Textures resolved, initializing scene');
+
     // Starfield
     const starGeometry = new THREE.SphereGeometry(100, 32, 32);
     const starMaterial = new THREE.MeshBasicMaterial({ map: starsTexture, side: THREE.BackSide });
     const stars = new THREE.Mesh(starGeometry, starMaterial);
     scene.add(stars);
 
-    // Earth with custom shader
+    // Earth
     const earthGeometry = new THREE.SphereGeometry(1, 64, 64);
-    const earthMaterial = new THREE.ShaderMaterial({
+    earthMaterial = new THREE.ShaderMaterial({
         uniforms: {
             dayTexture: { value: earthDayTexture },
             nightTexture: { value: earthNightTexture },
@@ -102,17 +140,18 @@ loadingManager.onLoad = function() {
         vertexShader: vertexShader,
         fragmentShader: fragmentShader
     });
-    const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+    earth = new THREE.Mesh(earthGeometry, earthMaterial);
     scene.add(earth);
 
-    // Clouds layer
+    // Clouds
     const cloudsGeometry = new THREE.SphereGeometry(1.01, 64, 64);
     const cloudsMaterial = new THREE.MeshPhongMaterial({
         map: cloudsTexture,
         alphaMap: cloudsTexture,
-        transparent: true
+        transparent: true,
+        opacity: 0.8
     });
-    const clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
+    clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
     scene.add(clouds);
 
     // Moon
@@ -140,16 +179,68 @@ loadingManager.onLoad = function() {
 
     // Start animation
     animate();
-};
+}).catch((error) => {
+    console.error('Error initializing textures:', error);
+    // Fallback: Render a basic sphere
+    const fallbackGeometry = new THREE.SphereGeometry(1, 32, 32);
+    const fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+    const fallbackEarth = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+    scene.add(fallbackEarth);
+    earth = fallbackEarth; // For rotation in animate
+    animate();
+});
 
 // Animation loop
 function animate() {
     requestAnimationFrame(animate);
 
-    // Rotate Earth and clouds
-    earth.rotation.y += earthRotationSpeed;
-    clouds.rotation.y += cloudRotationSpeed;
+    if (earth) earth.rotation.y += earthRotationSpeed;
+    if (clouds) clouds.rotation.y += cloudRotationSpeed;
 
+    moonAngle += moonOrbitSpeed;
+    moon.position.set(
+        moonOrbitRadius * Math.cos(moonAngle),
+        0,
+        moonOrbitRadius * Math.sin(moonAngle)
+    );
+
+    satAngle1 += satOrbitSpeed1;
+    satAngle2 += satOrbitSpeed2;
+    satAngle3 += satOrbitSpeed3;
+    satellite1.position.set(
+        satOrbitRadius1 * Math.cos(satAngle1),
+        0,
+        satOrbitRadius1 * Math.sin(satAngle1)
+    );
+    satellite2.position.set(
+        satOrbitRadius2 * Math.cos(satAngle2),
+        0,
+        satOrbitRadius2 * Math.sin(satAngle2)
+    );
+    satellite3.position.set(
+        satOrbitRadius3 * Math.cos(satAngle3),
+        0,
+        satOrbitRadius3 * Math.sin(satAngle3)
+    );
+
+    if (earthMaterial) {
+        const lightDirWorld = new THREE.Vector3(-1, 0, 0);
+        const viewMatrix = camera.matrixWorldInverse;
+        const rotationMatrix = new THREE.Matrix3().setFromMatrix4(viewMatrix);
+        const lightDirView = lightDirWorld.clone().applyMatrix3(rotationMatrix);
+        earthMaterial.uniforms.lightDirection.value = lightDirView;
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
     // Orbit Moon
     moonAngle += moonOrbitSpeed;
     moon.position.set(
