@@ -1,9 +1,71 @@
 body {
     margin: 0;
     overflow: hidden;
+    background: #1a1a2e;
 }
 
 #container {
     width: 100vw;
     height: 100vh;
+}
+
+#datetime-controller {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    font-family: Arial, sans-serif;
+}
+
+#datetime-controller button {
+    margin: 5px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 3px;
+    background: #4a90e2;
+    color: white;
+    cursor: pointer;
+}
+
+#datetime-controller button:hover {
+    background: #357abd;
+}
+
+#camera-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    font-family: Arial, sans-serif;
+}
+
+#camera-controls button, #camera-controls select {
+    margin: 5px;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+#camera-controls button {
+    background: #4a90e2;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+#camera-controls button:hover {
+    background: #357abd;
+}
+
+#current-time {
+    margin-top: 5px;
+    font-size: 14px;
+    color: #333;
 }
