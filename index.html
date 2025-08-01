@@ -3,13 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Earth Simulation</title>
+    <title>Earth Simulation Viewer</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
     <div id="container"></div>
+    <div id="datetime-controller">
+        <input id="datetime-picker" placeholder="Select Date & Time">
+        <button id="now-button">Now</button>
+        <div id="time-speed-controls">
+            <button id="pause">Pause</button>
+            <button id="1x">1x</button>
+            <button id="10x">10x</button>
+            <button id="100x">100x</button>
+        </div>
+        <p id="current-time"></p>
+    </div>
+    <div id="camera-controls">
+        <button id="reset-view">Reset View</button>
+        <select id="camera-target">
+            <option value="earth">Earth</option>
+            <option value="moon">Moon</option>
+            <option value="satellite1">Satellite 1</option>
+        </select>
+        <label><input type="checkbox" id="cinematic-mode"> Cinematic Mode</label>
+    </div>
+
+    <!-- Libraries via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.7/build/dat.gui.min.js"></script>
     <script src="textures.js"></script>
     <script src="main.js"></script>
 </body>
